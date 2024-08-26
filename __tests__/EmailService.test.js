@@ -1,38 +1,58 @@
-const EmailService = require('../EmailService');
-const MockProviderA = require('../providers/MockProviderA');
-const MockProviderB = require('../providers/MockProviderB');
+const EmailService = require('../src/EmailService');
+const MockProviderA = require('../src/providers/MockProviderA');
+const MockProviderB = require('../src/providers/MockProviderB');
 
-jest.mock('../providers/MockProviderA');
-jest.mock('../providers/MockProviderB');
+jest.mock('../src/providers/MockProviderA');
+jest.mock('../src/providers/MockProviderB');
 
 describe('EmailService', () => {
-  let emailService;
+    let emailService;
 
-  beforeEach(() => {
-    MockProviderA.mockClear();
-    MockProviderB.mockClear();
-    emailService = new EmailService();
-  });
+    beforeEach(() => {
+        emailService = new EmailService();
+    });
 
-  test('should send email with Provider A success', async () => {
-    // Mock Provider A to always succeed
-    MockProviderA.prototype.send.mockResolvedValue('MockProviderA success');
-    MockProviderB.prototype.send.mockResolvedValue('MockProviderB success');
+    test('should send email with Provider A success', async () => {
+        MockProviderA.send.mockResolvedValue('MockProviderA success');
+        MockProviderB.send.mockResolvedValue('MockProviderB success');
 
-    const email = { id: '1', to: 'test@example.com', subject: 'Test Email', body: 'This is a test email.' };
-    const result = await emailService.sendEmail(email);
-    expect(result.providerA).toBe('MockProviderA success');
-    expect(result.providerB).toBe(null);
-  });
+        const email = { id: '1', content: 'Test Email' };
+        const result = await emailService.sendEmail(email);
 
-  test('should retry Provider B on failure', async () => {
-    // Mock Provider A to fail and Provider B to succeed
-    MockProviderA.prototype.send.mockRejectedValue(new Error('MockProviderA simulated failure'));
-    MockProviderB.prototype.send.mockResolvedValue('MockProviderB success');
+        expect(result).toEqual({ providerA: 'MockProviderA success', providerB: null });
+    });
 
-    const email = { id: '2', to: 'test@example.com', subject: 'Test Email', body: 'This is a test email.' };
-    const result = await emailService.sendEmail(email);
-    expect(result.providerA).toBe(null);
-    expect(result.providerB).toBe('MockProviderB success');
-  });
+    test('should retry Provider B on failure', async () => {
+        MockProviderA.send.mockRejectedValue(new Error('Provider A failure'));
+        MockProviderB.send.mockResolvedValue('MockProviderB success');
+
+        const email = { id: '2', content: 'Test Email' };
+        const result = await emailService.sendEmail(email);
+
+        expect(result).toEqual({ providerA: null, providerB: 'MockProviderB success' });
+    });
+
+    test('should handle idempotency', async () => {
+        MockProviderA.send.mockResolvedValue('MockProviderA success');
+        MockProviderB.send.mockResolvedValue('MockProviderB success');
+
+        const email = { id: '3', content: 'Test Email' };
+        await emailService.sendEmail(email);
+        const result = await emailService.sendEmail(email); // Should not resend
+
+        expect(result).toEqual({ providerA: null, providerB: null });
+    });
+
+    test('should respect rate limiting', async () => {
+        MockProviderA.send.mockRejectedValue(new Error('Provider A failure'));
+        MockProviderB.send.mockResolvedValue('MockProviderB success');
+
+        const email = { id: '4', content: 'Test Email' };
+        const start = Date.now();
+        await emailService.sendEmail(email);
+        const end = Date.now();
+
+        // Adjusted tolerance to account for slight variations in timing
+        expect(end - start).toBeGreaterThanOrEqual(emailService.rateLimitMs - 50);
+    });
 });

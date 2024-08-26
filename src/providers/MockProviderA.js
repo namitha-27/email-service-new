@@ -1,16 +1,8 @@
 class MockProviderA {
-    constructor() {
-      this.name = 'A';
-    }
-  
-    async send(email) {
-      // Simulate failure for the first test
-      if (email.id === '1') {
-        throw new Error('MockProviderA simulated failure');
-      }
-      return 'MockProviderA success';
-    }
+  static async send(email) {
+      // Simulating a failure for demonstration purposes
+      throw new Error('MockProviderA failure');
   }
-  
-  module.exports = MockProviderA;
-  
+}
+
+module.exports = MockProviderA;
