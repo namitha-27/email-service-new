@@ -1,0 +1,20 @@
+{
+  "name": "email-service-new",
+  "version": "1.0.0",
+  "description": "An email service with retry logic and provider fallback",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "test": "jest",
+    "build": "echo 'No build step defined. Adjust as needed.'"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "nodemailer": "^6.9.14"
+  },
+  "devDependencies": {
+    "jest": "^29.7.0"
+  }
+}
