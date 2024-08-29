@@ -1,7 +1,10 @@
 class MockProviderA {
-  static async send(email) {
-      // Simulating a failure for demonstration purposes
-      throw new Error('MockProviderA failure');
+  async sendEmail(email) {
+      // Simulate a random failure or success
+      if (Math.random() < 0.5) {
+          throw new Error('MockProviderA simulated failure');
+      }
+      return 'MockProviderA success';
   }
 }
 
