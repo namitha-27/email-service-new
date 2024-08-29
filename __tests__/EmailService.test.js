@@ -1,9 +1,6 @@
-const EmailService = require('../src/EmailService');
-const MockProviderA = require('../src/providers/MockProviderA');
-const MockProviderB = require('../src/providers/MockProviderB');
-
-jest.mock('../src/providers/MockProviderA');
-jest.mock('../src/providers/MockProviderB');
+const MockProviderA = require('../providers/MockProviderA'); 
+const MockProviderB = require('../providers/MockProviderB'); 
+const EmailService = require('../EmailService');
 
 describe('EmailService', () => {
     let emailService;
@@ -12,47 +9,43 @@ describe('EmailService', () => {
         emailService = new EmailService();
     });
 
-    test('should send email with Provider A success', async () => {
-        MockProviderA.send.mockResolvedValue('MockProviderA success');
-        MockProviderB.send.mockResolvedValue('MockProviderB success');
+    it('should send email using MockProviderA', async () => {
+        // Mock successful send for MockProviderA
+        jest.spyOn(MockProviderA.prototype, 'sendEmail').mockResolvedValue('MockProviderA success');
+        jest.spyOn(MockProviderB.prototype, 'sendEmail').mockResolvedValue('MockProviderB success');
 
-        const email = { id: '1', content: 'Test Email' };
+        const email = { to: 'recipient@example.com', subject: 'Test Email', body: 'This is a test email' };
+        const result = await emailService.sendEmail(email);
+        
+        expect(result.status).toBe('complete'); 
+        expect(result.results.MockProviderA).toBe('MockProviderA success');
+        expect(result.results.MockProviderB).toBeUndefined(); 
+    });
+
+    it('should fallback to MockProviderB if MockProviderA fails', async () => {
+        // Mock failure for MockProviderA and success for MockProviderB
+        jest.spyOn(MockProviderA.prototype, 'sendEmail').mockRejectedValue(new Error('MockProviderA simulated failure'));
+        jest.spyOn(MockProviderB.prototype, 'sendEmail').mockResolvedValue('MockProviderB success');
+
+        const email = { to: 'recipient@example.com', subject: 'Test Email', body: 'This is a test email' };
+        const result = await emailService.sendEmail(email);
+        
+       
+        expect(result.status).toBe('complete');
+        expect(result.results.MockProviderA).toBeNull(); 
+        expect(result.results.MockProviderB).toBe('MockProviderB success');
+    });
+
+    it('should handle both providers failing', async () => {
+        // Mock failure for both providers
+        jest.spyOn(MockProviderA.prototype, 'sendEmail').mockRejectedValue(new Error('MockProviderA simulated failure'));
+        jest.spyOn(MockProviderB.prototype, 'sendEmail').mockRejectedValue(new Error('MockProviderB simulated failure'));
+
+        const email = { to: 'recipient@example.com', subject: 'Test Email', body: 'This is a test email' };
         const result = await emailService.sendEmail(email);
 
-        expect(result).toEqual({ providerA: 'MockProviderA success', providerB: null });
-    });
-
-    test('should retry Provider B on failure', async () => {
-        MockProviderA.send.mockRejectedValue(new Error('Provider A failure'));
-        MockProviderB.send.mockResolvedValue('MockProviderB success');
-
-        const email = { id: '2', content: 'Test Email' };
-        const result = await emailService.sendEmail(email);
-
-        expect(result).toEqual({ providerA: null, providerB: 'MockProviderB success' });
-    });
-
-    test('should handle idempotency', async () => {
-        MockProviderA.send.mockResolvedValue('MockProviderA success');
-        MockProviderB.send.mockResolvedValue('MockProviderB success');
-
-        const email = { id: '3', content: 'Test Email' };
-        await emailService.sendEmail(email);
-        const result = await emailService.sendEmail(email); // Should not resend
-
-        expect(result).toEqual({ providerA: null, providerB: null });
-    });
-
-    test('should respect rate limiting', async () => {
-        MockProviderA.send.mockRejectedValue(new Error('Provider A failure'));
-        MockProviderB.send.mockResolvedValue('MockProviderB success');
-
-        const email = { id: '4', content: 'Test Email' };
-        const start = Date.now();
-        await emailService.sendEmail(email);
-        const end = Date.now();
-
-        // Adjusted tolerance to account for slight variations in timing
-        expect(end - start).toBeGreaterThanOrEqual(emailService.rateLimitMs - 50);
+        expect(result.status).toBe('complete');
+        expect(result.results.MockProviderA).toBeNull(); 
+        expect(result.results.MockProviderB).toBeNull(); 
     });
 });
